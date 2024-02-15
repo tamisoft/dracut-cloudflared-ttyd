@@ -7,7 +7,7 @@ This allow the user to answer encrypted disk password prompts remotely from a we
 - `rpmbuild -ba dracut-cloudflared-ttyd.spec`
 
 ### Install the rpm
-- `sudo dnf install ~/rpmbuild/RPMS/x86_64/dracut-cloudflare-ttyd*`
+- `sudo dnf install ~/rpmbuild/RPMS/x86_64/dracut-cloudflared-ttyd*`
 
 ### Prerequisites
 - a configured Cloudflare tunnel, saved token
