@@ -16,6 +16,7 @@ URL:            https://github.com/tamisoft/dracut-cloudflared-ttyd.git
 BuildRequires:  wget
 
 Requires:       dracut
+Requires:       dracut-network
 
 %description
 This dracut module provides integration of the cloudflared and ttyd into the initram. This allow the user
