@@ -1,7 +1,7 @@
 %define dracutlibdir %{_prefix}/lib/dracut
 %global _missing_build_ids_terminate_build 0
 Name:           dracut-cloudflared-ttyd
-Version:        0.0.1
+Version:        0.0.2
 Release:        %autorelease
 Summary:        Creates configuration for dracut to include a web tty and cloudflared
 Group:          System
@@ -12,8 +12,13 @@ Source:         dracut-cloudflared-ttyd-%{version}.tar.gz
 
 License:        Mixed
 URL:            https://github.com/tamisoft/dracut-cloudflared-ttyd.git
-
-BuildRequires:  wget
+%if 0%{?fedora} < 40
+BuildRequires: wget
+%define wget_progress --show-progress
+%else
+BuildRequires:  wget2
+%define wget_progress --force-progress
+%endif
 
 Requires:       dracut
 Requires:       dracut-network
@@ -24,9 +29,9 @@ to unlock luks encrypted devices remotely from a browser when the systemd-ask-pa
 
 %prep
 [ ! -e "$RPM_SOURCE_DIR" ] && mkdir -p "$RPM_SOURCE_DIR"
-[ ! -e "$RPM_SOURCE_DIR/ttyd.x86_64" ] && wget -nc -q --show-progress -O "$RPM_SOURCE_DIR/ttyd.x86_64" https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64
-[ ! -e "$RPM_SOURCE_DIR/cloudflared-linux-amd64" ] && wget -nc -q --show-progress -O "$RPM_SOURCE_DIR/cloudflared-linux-amd64" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-[ ! -e "$RPM_SOURCE_DIR/%{SOURCEURL0}" ] && wget -nc -q --show-progress -O "$RPM_SOURCE_DIR/%{SOURCEURL0}" https://github.com/tamisoft/dracut-cloudflared-ttyd/archive/refs/tags/%{version}.tar.gz
+[ ! -e "$RPM_SOURCE_DIR/ttyd.x86_64" ] && wget -nc -q %{wget_progress} -O "$RPM_SOURCE_DIR/ttyd.x86_64" https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64
+[ ! -e "$RPM_SOURCE_DIR/cloudflared-linux-amd64" ] && wget -nc -q %{wget_progress} -O "$RPM_SOURCE_DIR/cloudflared-linux-amd64" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+[ ! -e "$RPM_SOURCE_DIR/%{SOURCEURL0}" ] && wget -nc -q %{wget_progress} -O "$RPM_SOURCE_DIR/%{SOURCEURL0}" https://github.com/tamisoft/dracut-cloudflared-ttyd/archive/refs/tags/%{version}.tar.gz
 %setup -q
 
 %install
