@@ -1,7 +1,7 @@
 %define dracutlibdir %{_prefix}/lib/dracut
 %global _missing_build_ids_terminate_build 0
 Name:           dracut-cloudflared-ttyd
-Version:        0.0.2
+Version:        0.0.3
 Release:        %autorelease
 Summary:        Creates configuration for dracut to include a web tty and cloudflared
 Group:          System
@@ -9,6 +9,7 @@ ExclusiveArch:  x86_64
 
 Source:         dracut-cloudflared-ttyd-%{version}.tar.gz
 %define         sourcename %{Source}
+%define  debug_package %{nil}
 
 License:        Mixed
 URL:            https://github.com/tamisoft/dracut-cloudflared-ttyd.git
@@ -52,5 +53,7 @@ install -Dm640 src/dracut-cloudflared-ttyd %{buildroot}%{_sysconfdir}/sysconfig/
 %license LICENSE
 
 %changelog
+* Thu Dec 26 2024 Levente Tamas
+- disable rpm debug_package
 * Tue Feb 13 2024 Levente Tamas
 - initial release.
