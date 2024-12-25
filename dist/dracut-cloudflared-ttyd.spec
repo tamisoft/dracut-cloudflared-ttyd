@@ -14,12 +14,15 @@ Source:         dracut-cloudflared-ttyd-%{version}.tar.gz
 License:        Mixed
 URL:            https://github.com/tamisoft/dracut-cloudflared-ttyd.git
 %if 0%{?fedora} < 40
-BuildRequires: wget
 %define wget_progress --show-progress
 %else
-BuildRequires:  wget2
+# Fedora 40 moved to wget2, with different command line options
 %define wget_progress --force-progress
 %endif
+BuildRequires: wget
+BuildRequires: gpg
+BuildRequires: rpm-sign
+BuildRequires: rpm-build
 
 Requires:       dracut
 Requires:       dracut-network
