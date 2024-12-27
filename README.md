@@ -1,12 +1,17 @@
 [![CI](https://github.com/tamisoft/dracut-cloudflared-ttyd/actions/workflows/main.yml/badge.svg)](https://github.com/tamisoft/dracut-cloudflared-ttyd/actions/workflows/main.yml)
 
+## Install using dnf
+Configure dnf to use the pre-built binaries. [Instructions](https://rpm-repo.tamisoft.com)
+
 ## Add cloudflared and web tty to dracut
 Building this package will fetch the latest version of cloudflared and ttyd binaries from their respective repos, then installs the module to dracut.
 This allow the user to answer encrypted disk password prompts remotely from a web browser.
 
 ### Build the rpm
-- install build dependencies: `sudo dnf install wget`
-- `rpmbuild -ba dracut-cloudflared-ttyd.spec`
+- install build dependencies: `sudo dnf install wget dnf-plugin-builddep rpm-build`
+- `sudo dnf builddep dracut-cloudflared-ttyd.spec`
+- `rpmbuild -bp dracut-cloudflared-ttyd.spec`
+- `rpmbuild -ba --define '_auto_tool_versions 1' dracut-cloudflared-ttyd.spec`
 
 ### Install the rpm
 - `sudo dnf install ~/rpmbuild/RPMS/x86_64/dracut-cloudflared-ttyd*`
