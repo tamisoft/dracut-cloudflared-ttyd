@@ -1,3 +1,5 @@
+[![CI](https://github.com/tamisoft/dracut-cloudflared-ttyd/actions/workflows/main.yml/badge.svg)](https://github.com/tamisoft/dracut-cloudflared-ttyd/actions/workflows/main.yml)
+
 ## Add cloudflared and web tty to dracut
 Building this package will fetch the latest version of cloudflared and ttyd binaries from their respective repos, then installs the module to dracut.
 This allow the user to answer encrypted disk password prompts remotely from a web browser.

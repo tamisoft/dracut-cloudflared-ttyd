@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.fedora_version }}
+
+    strategy:
+      matrix:
+        fedora_version: [40,41]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: main
+    
+    - name: Install dependencies
+      run: |
+        echo "Installing dependencies on Fedora ${{ matrix.fedora_version }}"
+        cd main/dist
+        dnf install -y dnf-plugin-builddep rpm-build rpm-sign gnupg2
+        dnf builddep -y dracut-cloudflared-ttyd.spec
+
+    - name: Add GPG key
+      run: |
+        echo "Adding GPG key on Fedora ${{ matrix.fedora_version }}"
+        pwd
+        # use the secrets.GPGKEY and save it to a file
+        echo "${{ secrets.GPGKEY }}" > gpgkey
+        echo "1"
+        export GPG_TTY=$(tty)
+        echo "2"
+        echo ${{ secrets.GPGPWD }} | gpg --batch --import --passphrase-fd 0 gpgkey || true
+        echo "3"
+        gpg --export -a 'Levente Tamas' > RPM-GPG-KEY-levi || true
+        echo "4"
+        echo ${{ secrets.GPGPWD }} > /github/home/.gpgpass
+        ls -l
+        ls -la /github/home
+        rpm --import RPM-GPG-KEY-levi
+        echo "Done"
+        
+    - name: Run build
+      run: |
+        echo "Running build on ${{ matrix.os }}"
+        pwd
+        cd main/dist
+        export GPG_TTY=$(tty)
+        echo -e "%_signature gpg\n%_gpg_name Levente Tamas\n%_gpg_sign_cmd_extra_args --batch --pinentry-mode loopback --passphrase-file /github/home/.gpgpass" >~/.rpmmacros
+        env
+        rpmbuild -bp dracut-cloudflared-ttyd.spec
+        rpmbuild -ba --define '_auto_tool_versions 1' dracut-cloudflared-ttyd.spec
+        find ~ -name '*.rpm'
+        mkdir -p $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }}/x86_64/Packages
+        cp -r ~/rpmbuild/RPMS/x86_64/*.rpm $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }}/x86_64/Packages
+        mkdir -p $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }}/source/Packages
+        cp -r ~/rpmbuild/SRPMS/*.rpm $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }}/source/Packages
+        find $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }} -name '*.rpm' -exec ls -l {} \;
+        find $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }} -name '*.rpm' -exec rpm --addsign {} \;
+        find $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }} -name '*.rpm' -exec rpm --checksig {} \;
+        echo "Done"
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifact-${{ github.run_number}}-${{ matrix.fedora_version }}
+        path: ${{ github.workspace }}/output_rpms
+        retention-days: 1
+        if-no-files-found: error
+        
+  final:
+    needs: build
+    runs-on: ubuntu-latest
+    container: fedora:41
+    
+    steps:
+      - name: Download artifacts Fedora 40
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.run_number}}-40
+          path: ${{ github.workspace }}/output_rpms
+
+      - name: Download artifacts Fedora 41
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.run_number}}-41
+          path: ${{ github.workspace }}/output_rpms
+
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies"
+          dnf install -y git createrepo rpm-build rpm-sign gnupg2
+  
+      - name: Checkout RPM repo
+        uses: actions/checkout@v2
+        with:
+          repository: tamisoft/rpmrepo
+          token: ${{ secrets.GH_PAT }}
+          path: rpmrepo
+          fetch-depth: 0
+
+      - name: Add GPG key
+        run: |
+          echo "Adding GPG key on Fedora ${{ matrix.fedora_version }}"
+          pwd
+          # use the secrets.GPGKEY and save it to a file
+          echo "${{ secrets.GPGKEY }}" > gpgkey
+          echo "1"
+          export GPG_TTY=$(tty)
+          echo "2"
+          echo ${{ secrets.GPGPWD }} | gpg --batch --import --passphrase-fd 0 gpgkey || true
+          echo "3"
+          gpg --export -a 'Levente Tamas' > RPM-GPG-KEY-levi || true
+          echo "4"
+          echo ${{ secrets.GPGPWD }} > /github/home/.gpgpass
+          rpm --import RPM-GPG-KEY-levi
+          echo "Done"
+
+      - name: Upload to rpmrepo
+        run: |
+          echo "Uploading to rpmrepo"
+          export GPG_TTY=$(tty)
+          cd output_rpms
+          cp -Rvf * $GITHUB_WORKSPACE/rpmrepo/fedora
+          cd $GITHUB_WORKSPACE/rpmrepo
+          git config user.email "levi@tamisoft.com"
+          git config user.name "Levente Tamas"
+          # Find all the directories that contain a repodata directory and cd into them then run createrepo --update
+          find $GITHUB_WORKSPACE/rpmrepo/fedora -type d -name repodata -exec sh -c 'cd $(dirname {}) && createrepo -v --update -x repodata -x .repodata . && pwd && gpg -v --pinentry-mode loopback --batch --detach-sign --yes --armor --passphrase-file /github/home/.gpgpass repodata/repomd.xml' \;
+          git add .
+          git commit -m "Update RPMs from build ${{ github.run_number }}"
+          git status
+          git push
+          echo "Done"
+              
