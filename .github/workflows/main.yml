@@ -4,13 +4,12 @@ on:
   push:
     tags:
       - "*"
-  workflow_dispatch: # Allows manual triggering
-  repository_dispatch:
-    types: [ttyd_release, cloudflared_release]
+  workflow_dispatch: # Allows manual triggering also used from release_check.yml
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
     container: fedora:${{ matrix.fedora_version }}
 
     strategy:

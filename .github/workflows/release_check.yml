@@ -9,14 +9,15 @@ on:
 jobs:
   check-releases:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Download latest release tags (if exists)
-        uses: actions/download-artifact@v4
+      - name: Check out branch with the latest tool versions
+        uses: actions/checkout@v4
         with:
-          name: latest_release_tags
-          path: .
-        continue-on-error: true
+          ref: latest_tool_versions
+        # continue-on-error: true
 
       - name: Restore previous release tags
         id: restore-tags
@@ -42,7 +43,7 @@ jobs:
       - name: Check for new release in ttyd
         id: check-ttyd
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           repo_owner="tsl0922"
           repo_name="ttyd"
@@ -57,13 +58,7 @@ jobs:
             echo $latest_release_tag_ttyd > ttyd_release_tag.txt  # Update the file with the latest release tag
 
             # Save the latest release tag as an artifact
-            echo "::set-output name=latest_release_tag_ttyd::$latest_release_tag_ttyd"
-
-            # Trigger downstream build
-            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/dispatches \
-            -d '{"event_type":"ttyd_release"}'
+            echo "latest_release_tag_ttyd=$latest_release_tag_ttyd" >> $GITHUB_OUTPUT
           else
             echo "No new release detected in ttyd"
           fi
@@ -71,7 +66,7 @@ jobs:
       - name: Check for new release in cloudflared
         id: check-cloudflared
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           repo_owner="cloudflare"
           repo_name="cloudflared"
@@ -86,23 +81,37 @@ jobs:
             echo $latest_release_tag_cloudflared > cloudflared_release_tag.txt  # Update the file with the latest release tag
 
             # Save the latest release tag as an artifact
-            echo "::set-output name=latest_release_tag_cloudflared::$latest_release_tag_cloudflared"
-
-            # Trigger downstream build
-            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/dispatches \
-            -d '{"event_type":"cloudflared_release"}'
+            echo "latest_release_tag_cloudflared=$latest_release_tag_cloudflared" >> $GITHUB_OUTPUT
           else
             echo "No new release detected in cloudflared"
           fi
 
-      - name: Upload latest release tags
+      - name: Re-build last tag and commit and push tool release tags
         if: steps.check-ttyd.outputs.latest_release_tag_ttyd || steps.check-cloudflared.outputs.latest_release_tag_cloudflared
-        uses: actions/upload-artifact@v4
-        with:
-          name: latest_release_tags
-          overwrite: true
-          path: |
-            ttyd_release_tag.txt
-            cloudflared_release_tag.txt
+        run: |
+            # Fetch the latest tag for the ref parameter
+            latest_tag=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/git/refs/tags | jq -r '.[-1].ref')
+
+            # Echo the latest tag to the output
+            echo "The latest tag we'll rebuild: $latest_tag"
+
+            if [ -z "$latest_tag" ]; then
+                echo "No tags found, exiting"
+                exit 1
+            fi
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git add ttyd_release_tag.txt cloudflared_release_tag.txt
+            # Commit the updated release tags and in the body of the commit message, mention the new release tags
+            git commit -m "Update release tags for ttyd and cloudflared" -m "ttyd: $(cat ttyd_release_tag.txt), cloudflared: $(cat cloudflared_release_tag.txt)"
+            git push origin latest_tool_versions
+
+            # Trigger downstream build
+            curl --fail-with-body -X POST -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/actions/workflows/main.yml/dispatches \
+            -d "{\"ref\":\"$latest_tag\"}"
+
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GH_PAT: ${{ secrets.GH_PAT }}
