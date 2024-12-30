@@ -1,0 +1,108 @@
+# This workflow will periodically check if there is a new ttyd or cloudflared release and trigger a new build if there is
+name: Check for New Releases
+
+on:
+  schedule:
+    - cron: '0 0 * * 2'  # Runs every Tuesday at 00:00 UTC
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  check-releases:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download latest release tags (if exists)
+        uses: actions/download-artifact@v4
+        with:
+          name: latest_release_tags
+          path: .
+        continue-on-error: true
+
+      - name: Restore previous release tags
+        id: restore-tags
+        run: |
+          if [ -f ttyd_release_tag.txt ]; then
+            echo "Previous release tag for ttyd found"
+            previous_release_tag_ttyd=$(cat ttyd_release_tag.txt)
+          else
+            echo "No previous release tag for ttyd found"
+            previous_release_tag_ttyd=""
+          fi
+          echo "PREVIOUS_RELEASE_TAG_TTYD=$previous_release_tag_ttyd" >> $GITHUB_ENV
+
+          if [ -f cloudflared_release_tag.txt ]; then
+            echo "Previous release tag for cloudflared found"
+            previous_release_tag_cloudflared=$(cat cloudflared_release_tag.txt)
+          else
+            echo "No previous release tag for cloudflared found"
+            previous_release_tag_cloudflared=""
+          fi
+          echo "PREVIOUS_RELEASE_TAG_CLOUDFLARED=$previous_release_tag_cloudflared" >> $GITHUB_ENV
+
+      - name: Check for new release in ttyd
+        id: check-ttyd
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repo_owner="tsl0922"
+          repo_name="ttyd"
+          latest_release_ttyd=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/$repo_owner/$repo_name/releases/latest)
+          latest_release_tag_ttyd=$(echo $latest_release_ttyd | jq -r .tag_name)
+
+          echo "Latest release tag for ttyd: $latest_release_tag_ttyd"
+          echo "Previous release tag for ttyd: $PREVIOUS_RELEASE_TAG_TTYD"
+
+          if [ "$latest_release_tag_ttyd" != "$PREVIOUS_RELEASE_TAG_TTYD" ]; then
+            echo "New release detected in ttyd, triggering downstream build"
+            echo $latest_release_tag_ttyd > ttyd_release_tag.txt  # Update the file with the latest release tag
+
+            # Save the latest release tag as an artifact
+            echo "::set-output name=latest_release_tag_ttyd::$latest_release_tag_ttyd"
+
+            # Trigger downstream build
+            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/dispatches \
+            -d '{"event_type":"ttyd_release"}'
+          else
+            echo "No new release detected in ttyd"
+          fi
+
+      - name: Check for new release in cloudflared
+        id: check-cloudflared
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repo_owner="cloudflare"
+          repo_name="cloudflared"
+          latest_release_cloudflared=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/$repo_owner/$repo_name/releases/latest)
+          latest_release_tag_cloudflared=$(echo $latest_release_cloudflared | jq -r .tag_name)
+
+          echo "Latest release tag for cloudflared: $latest_release_tag_cloudflared"
+          echo "Previous release tag for cloudflared: $PREVIOUS_RELEASE_TAG_CLOUDFLARED"
+
+          if [ "$latest_release_tag_cloudflared" != "$PREVIOUS_RELEASE_TAG_CLOUDFLARED" ]; then
+            echo "New release detected in cloudflared, triggering downstream build"
+            echo $latest_release_tag_cloudflared > cloudflared_release_tag.txt  # Update the file with the latest release tag
+
+            # Save the latest release tag as an artifact
+            echo "::set-output name=latest_release_tag_cloudflared::$latest_release_tag_cloudflared"
+
+            # Trigger downstream build
+            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/tamisoft/dracut-cloudflared-ttyd/dispatches \
+            -d '{"event_type":"cloudflared_release"}'
+          else
+            echo "No new release detected in cloudflared"
+          fi
+
+      - name: Upload latest release tags
+        if: steps.check-ttyd.outputs.latest_release_tag_ttyd || steps.check-cloudflared.outputs.latest_release_tag_cloudflared
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest_release_tags
+          overwrite: true
+          path: |
+            ttyd_release_tag.txt
+            cloudflared_release_tag.txt

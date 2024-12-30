@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch: # Allows manual triggering
+  repository_dispatch:
+    types: [ttyd_release, cloudflared_release]
 
 jobs:
   build:
