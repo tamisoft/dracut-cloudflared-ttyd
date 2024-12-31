@@ -3,7 +3,7 @@ name: Check for New Releases
 
 on:
   schedule:
-    - cron: '0 0 * * 2'  # Runs every Tuesday at 00:00 UTC
+    - cron: '35 10 * * 2'  # Runs every Tuesday at 10:35 UTC
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
