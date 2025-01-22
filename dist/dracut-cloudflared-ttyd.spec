@@ -9,7 +9,7 @@
 %define _cfd_version unknown
 %endif
 Name:           dracut-cloudflared-ttyd
-Version:        0.0.3
+Version:        0.0.4
 Release:        %autorelease -b %{_builddate} -e ttyd_%{_ttyd_version}_cf_%{_cfd_version}
 Summary:        Creates configuration for dracut to include a web tty and cloudflared
 Group:          System
@@ -36,6 +36,9 @@ BuildRequires: sed
 
 Requires:       dracut
 Requires:       dracut-network
+Requires:       grub2-tools
+Requires:       grubby
+Requires:       grep
 
 %description
 This dracut module provides integration of the cloudflared and ttyd into the initram. This allow the user
@@ -75,10 +78,39 @@ else
     echo "*******************************************************"
     echo "Edit /etc/sysconfig/dracut-cloudflared-ttyd file first."
     echo "*******************************************************"
+    echo "Checking for neccessary kernel arguments..."
+    if [ -e /etc/default/grub ]; then
+        if ! grep -qe "[ \"]rd.neednet=1" /etc/default/grub ; then
+            echo "Adding rd.neednet=1 to kernel arguments..."
+            grubby --update-kernel=ALL --args="rd.neednet=1"
+        fi
+        if ! grep -qe "[ \"]ip=" /etc/default/grub ; then
+            echo "Adding ip=dhcp to kernel arguments, please customize if static ip/vlan/dns/gw is needed..."
+            grubby --update-kernel=ALL --args="ip=dhcp"
+        fi
+        echo "Done. If you'll customize /etc/default/grub, don't"
+        echo "forget to run grub2-mkconfig -o /boot/grub2/grub.cfg"
+    else
+        echo "No /etc/default/grub found. Please update grub manually."
+    fi
+    echo "*******************************************************"
+    if [ -e /boot/grub2/grub.cfg ]; then
+        echo "Updating grub2 configuration..."
+        grub2-mkconfig -o /boot/grub2/grub.cfg 2>&1 >/dev/null || true
+    else
+        echo "No /boot/grub2/grub.cfg found. Please update grub manually."
+    fi
 fi
 
 %changelog
-* Thu Dec 26 2024 Levente Tamas
+* Web Jan 22 2024 Levente Tamas <levi@tamisoft.com> - 0.0.4
+- fix missing build dependencies
+- add automatic kernel argument check
+- add post install message
+- add grub2-mkconfig call
+
+* Thu Dec 26 2024 Levente Tamas <levi@tamisoft.com> - 0.0.3
 - disable rpm debug_package
-* Tue Feb 13 2024 Levente Tamas
+
+* Tue Feb 13 2024 Levente Tamas <levi@tamisoft.com> - 0.0.4
 - initial release.
