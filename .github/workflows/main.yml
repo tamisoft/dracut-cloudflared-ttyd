@@ -14,7 +14,7 @@ jobs:
 
     strategy:
       matrix:
-        fedora_version: [40,41]
+        fedora_version: [40,41,42]
 
     steps:
     - name: Checkout
@@ -94,6 +94,12 @@ jobs:
           name: build-artifact-${{ github.run_number}}-41
           path: ${{ github.workspace }}/output_rpms
 
+      - name: Download artifacts Fedora 42
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.run_number}}-42
+          path: ${{ github.workspace }}/output_rpms
+
       - name: Install dependencies
         run: |
           echo "Installing dependencies"
@@ -140,4 +146,3 @@ jobs:
           git status
           git push
           echo "Done"
-              
