@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: main
-    
+
     - name: Install dependencies
       run: |
         echo "Installing dependencies on Fedora ${{ matrix.fedora_version }}"
@@ -47,7 +47,7 @@ jobs:
         ls -la /github/home
         rpm --import RPM-GPG-KEY-levi
         echo "Done"
-        
+
     - name: Run build
       run: |
         echo "Running build on ${{ matrix.os }}"
@@ -67,7 +67,7 @@ jobs:
         find $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }} -name '*.rpm' -exec rpm --addsign {} \;
         find $GITHUB_WORKSPACE/output_rpms/${{ matrix.fedora_version }} -name '*.rpm' -exec rpm --checksig {} \;
         echo "Done"
-        
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
@@ -75,12 +75,12 @@ jobs:
         path: ${{ github.workspace }}/output_rpms
         retention-days: 1
         if-no-files-found: error
-        
+
   final:
     needs: build
     runs-on: ubuntu-latest
     container: fedora:41
-    
+
     steps:
       - name: Download artifacts Fedora 40
         uses: actions/download-artifact@v4
@@ -104,7 +104,7 @@ jobs:
         run: |
           echo "Installing dependencies"
           dnf install -y git createrepo rpm-build rpm-sign gnupg2
-  
+
       - name: Checkout RPM repo
         uses: actions/checkout@v2
         with:
