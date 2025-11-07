@@ -137,10 +137,13 @@ jobs:
           cd output_rpms
           cp -Rvf * $GITHUB_WORKSPACE/rpmrepo/fedora
           cd $GITHUB_WORKSPACE/rpmrepo
+          # create $GITHUB_WORKSPACE/rpmrepo/fedora/<version>/[source|x86_64]/repodata directorty if it does not exist
+          # find first all matching directories and then create repodata inside them - this is handling the new fedora versions
+          find $GITHUB_WORKSPACE/rpmrepo/fedora -maxdepth 3 -type d \( -name 'source' -o -name 'x86_64' \) -exec sh -c '[ ! -d "$1/repodata" ] && mkdir -p "$1/repodata"' _ {} \;
           git config user.email "levi@tamisoft.com"
           git config user.name "Levente Tamas"
           # Find all the directories that contain a repodata directory and cd into them then run createrepo --update
-          find $GITHUB_WORKSPACE/rpmrepo/fedora -type d -name repodata -exec sh -c 'cd $(dirname {}) && createrepo -v --update -x repodata -x .repodata . && pwd && gpg -v --pinentry-mode loopback --batch --detach-sign --yes --armor --passphrase-file /github/home/.gpgpass repodata/repomd.xml' \;
+          find $GITHUB_WORKSPACE/rpmrepo/fedora -maxdepth 4 -type d -name repodata -exec sh -c 'cd $(dirname {}) && createrepo -v --update -x repodata -x .repodata . && pwd && gpg -v --pinentry-mode loopback --batch --detach-sign --yes --armor --passphrase-file /github/home/.gpgpass repodata/repomd.xml' \;
           git add .
           git commit -m "Update RPMs from build ${{ github.run_number }}"
           git status
